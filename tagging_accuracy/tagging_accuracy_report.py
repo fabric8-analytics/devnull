@@ -61,9 +61,11 @@ class TaggingAccuracyReport():
         return automated_tags_json['tags']
 
     def match_tags(self):
-        no_tags = man_tags_not_in_result = man_tags_not_collected = 0
+        total_packages = correctly_tagged = partially_correct = \
+            no_tags = man_tags_not_in_result = man_tags_not_collected = 0
         no_tags_list = []
         for package_name in self.package_topic_json:
+            total_packages += 1
             manual_tags = set(self.package_topic_json[package_name])
             automated_tags = self.get_automated_tags_for_package(package_name)
             if len(automated_tags) == 0:
@@ -84,6 +86,8 @@ class TaggingAccuracyReport():
                 man_tags_not_in_result += 1
             else:
                 print("Manual tags of {} are in result".format(package_name))
+                correctly_tagged += 1
+                partially_correct += 1
                 continue
             # if not, check if all manual tags are present in collected tags
             all_tags = set()
@@ -96,11 +100,11 @@ class TaggingAccuracyReport():
                       """tagging""".format(tags_not_found, package_name))
                 man_tags_not_collected += 1
             else:
-                pass
                 print("Collected manual tags for {}".format(package_name))
+                partially_correct += 1
         with open('no_tags.json', 'w') as f:
             f.write(json.dumps(no_tags_list))
-        return no_tags, man_tags_not_in_result, man_tags_not_collected
+        return no_tags, man_tags_not_in_result, man_tags_not_collected, total_packages, correctly_tagged, partially_correct
 
 
 @click.command()
@@ -116,12 +120,17 @@ class TaggingAccuracyReport():
 def main(automated_tags_bucket, manual_tags_bucket, manual_tags_json):
     tar = TaggingAccuracyReport(
         manual_tags_bucket, automated_tags_bucket, manual_tags_json)
-    no_tags, not_in_res, not_collected = tar.match_tags()
+    no_tags, not_in_res, not_collected, total, correct, partially_correct = \
+        tar.match_tags()
     print("{} packages did not have tags available for them.".format(no_tags))
     print("{} packages did not have all manual tags """
           """in the result""".format(not_in_res))
     print("{} packages did not have all manual tags """
           """collected""".format(not_collected))
+    tags_found = total - no_tags
+    print("Tagged {}% packages correctly".format(correct / tags_found * 100))
+    print("Successfully extracted all manual tags for {}% packages".format(
+        partially_correct / tags_found * 100))
 
 
 if __name__ == '__main__':
