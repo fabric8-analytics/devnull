@@ -128,6 +128,7 @@ def main(automated_tags_bucket, manual_tags_bucket, manual_tags_json):
     print("{} packages did not have all manual tags """
           """collected""".format(not_collected))
     tags_found = total - no_tags
+    print("Total packages analyzed: {}".format(total))
     print("Tagged {}% packages correctly".format(correct / tags_found * 100))
     print("Successfully extracted all manual tags for {}% packages".format(
         partially_correct / tags_found * 100))
