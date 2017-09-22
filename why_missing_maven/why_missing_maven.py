@@ -14,7 +14,6 @@ import logging
 import os
 import re
 import sys
-from collections import deque
 
 import click
 import daiquiri
@@ -31,18 +30,9 @@ def iter_files(path):
     :param path: path to a directory tree to yield files
     :return: file
     """
-    stack = deque([path])
-
-    while stack:
-        item = stack.pop()
-
-        if os.path.isfile(item):
-            yield item
-        elif os.path.isdir(item):
-            for entry in os.listdir(item):
-                stack.append(os.path.join(item, entry))
-        else:
-            _logger.warning("Ignoring content in '%s'", item)
+    for dirpath, _, filenames in os.walk(path):
+        for filename in filenames:
+            yield os.path.join(dirpath, filename)
 
 
 def _create_flow_args(names, versions):
