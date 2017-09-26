@@ -64,6 +64,7 @@ class TaggingAccuracyReport():
         total_packages = correctly_tagged = partially_correct = \
             no_tags = man_tags_not_in_result = man_tags_not_collected = 0
         no_tags_list = []
+        partially_correct_list = []
         for package_name in self.package_topic_json:
             total_packages += 1
             manual_tags = set(self.package_topic_json[package_name])
@@ -101,9 +102,12 @@ class TaggingAccuracyReport():
                 man_tags_not_collected += 1
             else:
                 print("Collected manual tags for {}".format(package_name))
+                partially_correct_list.append(package_name)
                 partially_correct += 1
         with open('no_tags.json', 'w') as f:
             f.write(json.dumps(no_tags_list))
+        with open('partially_correct.json', 'w') as pc_json:
+            pc_json.write(json.dumps(partially_correct_list, indent=4, sort_keys=True))
         return no_tags, man_tags_not_in_result, man_tags_not_collected, total_packages, correctly_tagged, partially_correct
 
 
