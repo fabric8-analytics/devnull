@@ -111,7 +111,7 @@ def _create_untagged_result_entry(name):
 
 def _create_untagged_summary(untagged_packages, versions):
     """Add summary about untagged packages."""
-    result = dict.fromkeys(('non_existing', 'to_inspect', 'no_version'), [])
+    result = {'non_existing': [], 'to_inspect': [], 'no_version': []}
 
     for file_path, untagged_info in untagged_packages.items():
         if untagged_info['maven_central_status_code'] == 404 and \
