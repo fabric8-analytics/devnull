@@ -123,7 +123,7 @@ def _create_untagged_summary(untagged_packages, versions):
             result['to_inspect'].append(file_path)
 
     # ... and add some nice to have stats
-    result['non_existing'] = len(result['non_existing_count'])
+    result['non_existing_count'] = len(result['non_existing'])
     result['to_inspect_count'] = len(result['to_inspect'])
     result['no_version_count'] = len(result['no_version'])
 
