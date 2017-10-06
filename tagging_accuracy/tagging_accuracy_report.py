@@ -4,11 +4,13 @@ import botocore
 from botocore.exceptions import ClientError
 import json
 import os
+import math
 import sys
 import click
+import numpy
 
 
-class TaggingAccuracyReport():
+class TaggingAccuracyReport(object):
 
     def __init__(self,
                  manual_tags_bucket,
@@ -27,10 +29,13 @@ class TaggingAccuracyReport():
         self.s3_resource = self.session.resource(
             's3', config=botocore.client.Config(signature_version='s3v4'))
         self.ecosystem = ecosystem
-        self.package_topic_json = self.load_manual_tags_json(
+        self.package_topic_json = self._load_manual_tags_json(
             manual_tags_filename)
+        self.automated_tags_dict = {}
+        self.partially_correct_list = []
+        self.sorted_automated_tags = {}
 
-    def load_manual_tags_json(self, manual_tags_filename):
+    def _load_manual_tags_json(self, manual_tags_filename):
         manual_tags_file = self.s3_resource.Object(
             self.manual_tags_bucket_name, manual_tags_filename
         ).get()['Body'].read().decode('utf-8')
@@ -51,12 +56,16 @@ class TaggingAccuracyReport():
             print("No tags collected for " + package_name)
             return {}
         automated_tags_json = json.loads(automated_tags_file)
-        if 'tags' not in automated_tags_json or \
-            len(automated_tags_json['tags']) == 0 \
+        if 'result' in automated_tags_json['tags'] and automated_tags_json['tags']['result']:
+            # The way the tagger currently works, if results is not empty _sorted cannot be empty
+            self.sorted_automated_tags[package_name] = automated_tags_json['tags']['_sorted']
+            tags_arr = numpy.array(automated_tags_json['tags']['result'])[:, 1]
+            self.automated_tags_dict[package_name] = set(list(tags_arr))
+        else:
+            self.automated_tags_dict[package_name] = set()
+        if 'tags' not in automated_tags_json or len(automated_tags_json['tags']) == 0 \
                 or len(automated_tags_json['tags']['_sorted']) == 0:
-            print(
-                "No tags available for package {}".format(package_name)
-            )
+            print("No tags available for package {}".format(package_name))
             return {}
         return automated_tags_json['tags']
 
@@ -108,7 +117,54 @@ class TaggingAccuracyReport():
             f.write(json.dumps(no_tags_list))
         with open('partially_correct.json', 'w') as pc_json:
             pc_json.write(json.dumps(partially_correct_list, indent=4, sort_keys=True))
-        return no_tags, man_tags_not_in_result, man_tags_not_collected, total_packages, correctly_tagged, partially_correct
+        return (no_tags, man_tags_not_in_result, man_tags_not_collected, total_packages,
+                correctly_tagged, partially_correct)
+
+    def check_tag_matches(self, num_tags_in_result=4):
+        """Check the common tags between two packages and aggregate metric.
+
+        This metric is of importance from the point of view of the PGM as for us to give better
+        alternate and companion package recommendations we need that our packages be grouped
+        under common topics.
+        """
+        occurences = {}
+        # We need to compare each package to every other package in order to make sure that we
+        # cover all bases. At the same time we need to make sure that we don't consider any
+        # combo twice.
+        for package_name in list(self.automated_tags_dict):
+            current_package_tags = self.automated_tags_dict.pop(package_name)
+            # copy the list so as to not alter it
+            automated_tags_copy_list = self.automated_tags_dict.values()
+            res = list(map(lambda this_package_tags: len(this_package_tags - current_package_tags),
+                           automated_tags_copy_list))
+            # sort to check the percentage occurrence of every result
+            res = sorted(res)
+            for common_count in res:
+                if common_count < 4:
+                    occurences[num_tags_in_result - common_count] = \
+                        occurences.get(num_tags_in_result - common_count, 0) + 1
+
+        for common_count in occurences:
+            print("No. of package pairs with {} common tags: {}".format(common_count,
+                                                                        occurences[common_count]))
+
+    def _calculate_euclidean_distance(self, partially_correct_list):
+        """Calculates the euclidean distance based on the position at which the tag occurs
+        from the top in _sorted."""
+        total_sum = 0
+        for package_name in partially_correct_list:
+            # check which tags are not a part of the result
+            tags_missing = (set(self.package_topic_json[package_name]) -
+                            set(self.automated_tags_dict[package_name]))
+            for tag in tags_missing:
+                dist = 1
+                for tag_name, confidence_score in self.sorted_automated_tags[package_name]:
+                    if tag == tag_name:
+                        total_sum += dist * dist
+                        break
+                    else:
+                        dist += 1
+        return math.sqrt(total_sum)
 
 
 @click.command()
@@ -126,6 +182,7 @@ def main(automated_tags_bucket, manual_tags_bucket, manual_tags_json):
         manual_tags_bucket, automated_tags_bucket, manual_tags_json)
     no_tags, not_in_res, not_collected, total, correct, partially_correct = \
         tar.match_tags()
+    tar.check_tag_matches()
     print("{} packages did not have tags available for them.".format(no_tags))
     print("{} packages did not have all manual tags """
           """in the result""".format(not_in_res))
