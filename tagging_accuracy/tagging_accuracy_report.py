@@ -29,8 +29,7 @@ class TaggingAccuracyReport(object):
         self.s3_resource = self.session.resource(
             's3', config=botocore.client.Config(signature_version='s3v4'))
         self.ecosystem = ecosystem
-        self.package_topic_json = self._load_manual_tags_json(
-            manual_tags_filename)
+        self.package_topic_json = self._load_manual_tags_json(manual_tags_filename)
         self.automated_tags_dict = {}
         self.partially_correct_list = []
         self.sorted_automated_tags = {}
@@ -59,10 +58,9 @@ class TaggingAccuracyReport(object):
         if 'result' in automated_tags_json['tags'] and automated_tags_json['tags']['result']:
             # The way the tagger currently works, if results is not empty _sorted cannot be empty
             self.sorted_automated_tags[package_name] = automated_tags_json['tags']['_sorted']
-            tags_arr = numpy.array(automated_tags_json['tags']['result'])[:, 1]
+            tags_arr = numpy.array(automated_tags_json['tags']['result'])[:, 0]
             self.automated_tags_dict[package_name] = set(list(tags_arr))
-        else:
-            self.automated_tags_dict[package_name] = set()
+
         if 'tags' not in automated_tags_json or len(automated_tags_json['tags']) == 0 \
                 or len(automated_tags_json['tags']['_sorted']) == 0:
             print("No tags available for package {}".format(package_name))
@@ -131,19 +129,19 @@ class TaggingAccuracyReport(object):
         # We need to compare each package to every other package in order to make sure that we
         # cover all bases. At the same time we need to make sure that we don't consider any
         # combo twice.
-        for package_name in list(self.automated_tags_dict):
-            current_package_tags = self.automated_tags_dict.pop(package_name)
+        automated_tags_dict = self.automated_tags_dict
+        for package_name in list(automated_tags_dict):
+            current_package_tags = automated_tags_dict.pop(package_name)
             # copy the list so as to not alter it
-            automated_tags_copy_list = self.automated_tags_dict.values()
+            automated_tags_copy_list = automated_tags_dict.values()
             res = list(map(lambda this_package_tags: len(this_package_tags - current_package_tags),
                            automated_tags_copy_list))
-            # sort to check the percentage occurrence of every result
-            res = sorted(res)
-            for common_count in res:
-                if common_count < 4:
-                    occurences[num_tags_in_result - common_count] = \
-                        occurences.get(num_tags_in_result - common_count, 0) + 1
-
+            for uncommon_count in res:
+                # if we find common tags between two packages
+                if uncommon_count < 4:
+                    common_count = num_tags_in_result - uncommon_count
+                    occurences[common_count] = \
+                        occurences.get(common_count, 0) + 1
         for common_count in occurences:
             print("No. of package pairs with {} common tags: {}".format(common_count,
                                                                         occurences[common_count]))
