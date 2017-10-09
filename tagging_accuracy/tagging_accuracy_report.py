@@ -60,7 +60,7 @@ class TaggingAccuracyReport(object):
             _logger.warning("No tags collected for " + package_name)
             return {}
         automated_tags_json = json.loads(automated_tags_file)
-        if 'result' in automated_tags_json['tags'] and automated_tags_json['tags']['result']:
+        if automated_tags_json['tags'].get('result'):
             # The way the tagger currently works, if results is not empty _sorted cannot be empty
             self.sorted_automated_tags[package_name] = automated_tags_json['tags']['_sorted']
             tags_arr = np.array(automated_tags_json['tags']['result'])[:, 0]
