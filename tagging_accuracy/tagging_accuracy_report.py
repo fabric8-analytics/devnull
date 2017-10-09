@@ -7,7 +7,12 @@ import os
 import math
 import sys
 import click
-import numpy
+import numpy as np
+import daiquiri
+import logging
+
+daiquiri.setup(level=logging.INFO)
+_logger = daiquiri.getLogger(__name__)
 
 
 class TaggingAccuracyReport(object):
@@ -22,7 +27,7 @@ class TaggingAccuracyReport(object):
         aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID", None)
         aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY", None)
         if aws_access_key_id is None or aws_secret_access_key is None:
-            print("No AWS credentials set in environment")
+            _logger.error("No AWS credentials set in environment")
             sys.exit(1)
         self.session = boto3.session.Session(
             aws_access_key_id, aws_secret_access_key)
@@ -52,18 +57,18 @@ class TaggingAccuracyReport(object):
                 self.automated_tags_bucket_name, tags_file_path
             ).get()['Body'].read().decode('utf-8')
         except ClientError:
-            print("No tags collected for " + package_name)
+            _logger.warning("No tags collected for " + package_name)
             return {}
         automated_tags_json = json.loads(automated_tags_file)
         if 'result' in automated_tags_json['tags'] and automated_tags_json['tags']['result']:
             # The way the tagger currently works, if results is not empty _sorted cannot be empty
             self.sorted_automated_tags[package_name] = automated_tags_json['tags']['_sorted']
-            tags_arr = numpy.array(automated_tags_json['tags']['result'])[:, 0]
+            tags_arr = np.array(automated_tags_json['tags']['result'])[:, 0]
             self.automated_tags_dict[package_name] = set(list(tags_arr))
 
         if 'tags' not in automated_tags_json or len(automated_tags_json['tags']) == 0 \
                 or len(automated_tags_json['tags']['_sorted']) == 0:
-            print("No tags available for package {}".format(package_name))
+            _logger.warning("No tags available for package {}".format(package_name))
             return {}
         return automated_tags_json['tags']
 
@@ -87,13 +92,13 @@ class TaggingAccuracyReport(object):
                 result.add(tag_name)
             tags_not_found = manual_tags - result
             if len(tags_not_found) > 0:
-                print(
+                _logger.info(
                     """{} not found in result for package {} in automated"""
                     """ tagging""".format(tags_not_found, package_name)
                 )
                 man_tags_not_in_result += 1
             else:
-                print("Manual tags of {} are in result".format(package_name))
+                _logger.debug("Manual tags of {} are in result".format(package_name))
                 correctly_tagged += 1
                 partially_correct += 1
                 continue
@@ -104,17 +109,19 @@ class TaggingAccuracyReport(object):
                 all_tags.add(tag_name)
             tags_not_found = manual_tags - all_tags
             if len(tags_not_found) > 0:
-                print("{} not found in all tags of package {} in automated """
-                      """tagging""".format(tags_not_found, package_name))
+                _logger.info("{} not found in all tags of package {} in automated """
+                             """tagging""".format(tags_not_found, package_name))
                 man_tags_not_collected += 1
             else:
-                print("Collected manual tags for {}".format(package_name))
+                _logger.debug("Collected manual tags for {}".format(package_name))
                 partially_correct_list.append(package_name)
                 partially_correct += 1
         with open('no_tags.json', 'w') as f:
             f.write(json.dumps(no_tags_list))
         with open('partially_correct.json', 'w') as pc_json:
             pc_json.write(json.dumps(partially_correct_list, indent=4, sort_keys=True))
+        print("The Euclidean distance measure is: {}".format(
+              self._calculate_euclidean_distance(partially_correct_list)))
         return (no_tags, man_tags_not_in_result, man_tags_not_collected, total_packages,
                 correctly_tagged, partially_correct)
 
