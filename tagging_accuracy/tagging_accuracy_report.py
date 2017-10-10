@@ -137,7 +137,7 @@ class TaggingAccuracyReport(object):
         # cover all bases. At the same time we need to make sure that we don't consider any
         # combo twice.
         automated_tags_dict = self.automated_tags_dict
-        for package_name in list(automated_tags_dict):
+        for package_name in list(automated_tags_dict.keys()):
             current_package_tags = automated_tags_dict.pop(package_name)
             # copy the list so as to not alter it
             automated_tags_copy_list = automated_tags_dict.values()
