@@ -7,3 +7,4 @@ nltk==3.2.4
 python-dateutil==2.6.1
 s3transfer==0.1.11
 six==1.11.0
+numpy
