@@ -1,0 +1,7 @@
+import os
+
+prefix_url = os.environ.get("MANUAL_TAG_URL", "")
+ecosystem = os.environ.get("ECOSYSTEM", "")
+Authorization = os.environ.get("AUTH_TOKEN", "") #OSIO token
+user_names = []
+tag_prune_limit = os.environ.get("TAG_PRUNE_LIMIT", "4")
