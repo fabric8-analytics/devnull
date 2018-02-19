@@ -34,7 +34,7 @@ for name in user_names:
     if response.status_code != 200:
         user_data_not_found.append(name)
         continue
-    response_data = json.loads(response.content)
+    response_data = response.json()
     package_topic_map = response_data.get(
         'data', {}).get('package_topic_map', {})
     for package_name, tag_list in package_topic_map.items():
@@ -44,11 +44,11 @@ for name in user_names:
 
 
 if len(user_data_not_found) == len(user_names):
-    print("Request unsuccessfull for all users")
+    print("Request unsuccessful for all users")
     sys.exit(1)
 
 if len(user_data_not_found) > 0:
-    print("Request unsuccessfull for following users %s" % user_data_not_found)
+    print("Request unsuccessful for following users %s" % user_data_not_found)
 
 for_each_ecosystem['package_topic_map'] = final_package_dict
 final_data_list.append(for_each_ecosystem)
@@ -69,4 +69,4 @@ for package in final_package_dict:
 print("Total packages to tag in %s = %d" %
       (ecosystem, len(final_package_dict)))
 print("Total untagged packages = %d" % empty_count)
-print("Total packages that require tag pruining = %d" % need_prune_count)
+print("Total packages that require tag pruning = %d" % need_prune_count)
