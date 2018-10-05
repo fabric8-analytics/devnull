@@ -26,11 +26,13 @@ class BigQueryAdapter():
         bigquery_service = bigquery.Client()
         query = bigquery_service.run_sync_query(bigquerysql)
         query.timeout_ms = 60000
-        query.use_legacy_sql = False
+        query.use_legacy_sql = True
         query.use_query_cache = True
         query.run()
+        print("Ran SQL successfully.")
         self.query = query
         data, row_count, self._token = query.fetch_data()
+        print(row_count, self._token)
         return BigQueryAdapter._bigquery_result_to_list(self._select_columns, data), row_count
 
     def next_result_set(self):
@@ -42,6 +44,7 @@ class BigQueryAdapter():
             return None, 0
         else:
             data, row_count, self._token = self.query.fetch_data(page_token=self._token)
+            print(row_count, self._token)
             return BigQueryAdapter._bigquery_result_to_list(self._select_columns, data), row_count
 
     @staticmethod
